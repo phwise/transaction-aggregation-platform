@@ -1,0 +1,35 @@
+
+server:
+  port: 8081
+
+spring:
+  application:
+    name: transaction-aggregation-gateway
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/transaction-platform
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: transaction-aggregation
+              uri: ${AGGREGATION_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/v1/transactions/*
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+logging:
+  level:
+    org.springframework.security: TRACE
+    org.springframework.security.oauth2.server.resource: TRACE
+    org.springframework.web.server.adapter.HttpWebHandlerAdapter: DEBUG
+    org.springframework.cloud.gateway: DEBUG

@@ -1,11 +1,12 @@
+name: transaction-aggregation
 
 services:
   postgres:
     image: postgres:17
     environment:
       POSTGRES_DB: transactions
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -17,15 +18,33 @@ services:
       retries: 10
     restart: unless-stopped
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in .env}
+      # Tokens are issued with this public issuer; services fetch keys from the internal address.
+      KC_HOSTNAME: http://localhost:8180
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    ports:
+      - "127.0.0.1:8180:8080"
+    restart: unless-stopped
+
   aggregation:
     build:
       context: .
       dockerfile: Dockerfile.aggregation
+      secrets:
+        - corp_ca
     environment:
       SERVER_PORT: 8082
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/transactions
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      APP_SECURITY_JWT_ISSUER: http://localhost:8180/realms/transaction-platform
+      APP_SECURITY_JWT_JWK_SET_URI: http://keycloak:8080/realms/transaction-platform/protocol/openid-connect/certs
     expose:
       - "8082"
     depends_on:
@@ -37,14 +56,23 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.gateway
+      secrets:
+        - corp_ca
     ports:
       - "8080:8080"
     environment:
       SERVER_PORT: 8080
       AGGREGATION_URL: http://aggregation:8082
+      APP_SECURITY_JWT_ISSUER: http://localhost:8180/realms/transaction-platform
+      APP_SECURITY_JWT_JWK_SET_URI: http://keycloak:8080/realms/transaction-platform/protocol/openid-connect/certs
     depends_on:
       - aggregation
     restart: unless-stopped
+
+secrets:
+  # Optional corporate root CA for builds behind a TLS-inspecting proxy. Empty by default.
+  corp_ca:
+    file: ${CORP_CA_PEM:-/dev/null}
 
 volumes:
   postgres_data:

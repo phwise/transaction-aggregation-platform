@@ -1,6 +1,5 @@
 package com.capitec.base.db.entity;
 
-
 import com.capitec.domain.TransactionCategory;
 import com.capitec.domain.TransactionDirection;
 import com.capitec.domain.TransactionStatus;
@@ -14,6 +13,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -41,6 +42,8 @@ import java.util.UUID;
 )
 @Data
 @Builder
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor
 public class Transaction {
 
     @Id

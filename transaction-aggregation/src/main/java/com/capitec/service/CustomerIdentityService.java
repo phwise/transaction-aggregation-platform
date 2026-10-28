@@ -1,8 +1,10 @@
 package com.capitec.service;
 
 import com.capitec.base.exception.MissingCustomerIdException;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 
 import java.util.regex.Pattern;
@@ -11,20 +13,18 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class CustomerIdentityService {
 
-    private static final String CUSTOMER_ID_HEADER = "X-Customer-Id";
-
     private static final Pattern CUSTOMER_ID =
             Pattern.compile("[A-Za-z0-9_-]{1,50}");
 
-    private final HttpServletRequest request;
-
     public String getCurrentCustomerId() {
 
-        String customerId = request.getHeader(CUSTOMER_ID_HEADER);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        if (customerId != null
-                && CUSTOMER_ID.matcher(customerId).matches()) {
-            return customerId;
+        if (authentication instanceof JwtAuthenticationToken jwtAuthentication) {
+            String subject = jwtAuthentication.getToken().getSubject();
+            if (subject != null && CUSTOMER_ID.matcher(subject).matches()) {
+                return subject;
+            }
         }
 
         throw new MissingCustomerIdException();

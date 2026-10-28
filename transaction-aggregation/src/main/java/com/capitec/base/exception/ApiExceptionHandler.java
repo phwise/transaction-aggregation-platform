@@ -1,6 +1,5 @@
 package com.capitec.base.exception;
 
-
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.LoggerFactory;
@@ -56,6 +55,14 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     ResponseEntity<ProblemDetail> idempotencyKeyReused(IdempotencyKeyReusedException e) {
         return respond(HttpStatus.UNPROCESSABLE_ENTITY, "idempotency-key-reused", "Idempotency-Key reused",
                 "This Idempotency-Key was already used with a different request. Use a new key.");
+    }
+
+    @ExceptionHandler(MissingCustomerIdException.class)
+    ResponseEntity<ProblemDetail> unauthenticated(MissingCustomerIdException e) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer error=\"invalid_token\"")
+                .body(problem(HttpStatus.UNAUTHORIZED, "unauthenticated", "Unauthorized",
+                        "The access token does not identify a valid customer."));
     }
 
     @ExceptionHandler(Exception.class)

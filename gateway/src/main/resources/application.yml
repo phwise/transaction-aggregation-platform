@@ -1,16 +1,13 @@
-
 server:
-  port: 8081
+  port: 8080
+  shutdown: graceful
 
 spring:
   application:
     name: transaction-aggregation-gateway
 
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: http://localhost:8180/realms/transaction-platform
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
 
   cloud:
     gateway:
@@ -20,16 +17,24 @@ spring:
             - id: transaction-aggregation
               uri: ${AGGREGATION_URL:http://localhost:8082}
               predicates:
-                - Path=/api/v1/transactions/*
+                - Path=/api/v1/transactions,/api/v1/transactions/**
+
+app:
+  security:
+    jwt:
+      issuer: ${APP_SECURITY_JWT_ISSUER:http://localhost:8180/realms/transaction-platform}
+      jwk-set-uri: ${APP_SECURITY_JWT_JWK_SET_URI:http://localhost:8180/realms/transaction-platform/protocol/openid-connect/certs}
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
 logging:
   level:
-    org.springframework.security: TRACE
-    org.springframework.security.oauth2.server.resource: TRACE
-    org.springframework.web.server.adapter.HttpWebHandlerAdapter: DEBUG
-    org.springframework.cloud.gateway: DEBUG
+    root: INFO
+    org.springframework.cloud.gateway: INFO

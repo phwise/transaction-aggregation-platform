@@ -1,11 +1,30 @@
+ syntax=docker/dockerfile:1
 
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /workspace
-COPY . .
-RUN mvn -B -pl gateway -am clean package -DskipTests
 
-FROM eclipse-temurin:21-jre
+COPY pom.xml ./
+COPY gateway/pom.xml gateway/
+COPY transaction-aggregation/pom.xml transaction-aggregation/
+COPY transaction-aggregation/src transaction-aggregation/src
+
+# Optional corporate root CA (for example a TLS-inspecting proxy), supplied as a build secret.
+RUN --mount=type=cache,target=/root/.m2 \
+    --mount=type=secret,id=corp_ca,required=false \
+    if [ -s /run/secrets/corp_ca ]; then \
+        keytool -importcert -noprompt -cacerts -storepass changeit -alias corp-ca -file /run/secrets/corp_ca; \
+    fi \
+    && mvn -B -pl transaction-aggregation -am clean package -DskipTests
+
+FROM eclipse-temurin:21-jre AS runtime
+
+RUN groupadd --system app && useradd --system --gid app --no-create-home app
 WORKDIR /app
-COPY --from=build /workspace/gateway/target/gateway-0.0.1-SNAPSHOT.jar app.jar
-EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+
+COPY --from=build --chown=app:app /workspace/transaction-aggregation/target/transaction-aggregation-0.0.1-SNAPSHOT.jar app.jar
+
+USER app
+EXPOSE 8082
+
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
